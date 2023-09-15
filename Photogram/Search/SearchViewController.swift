@@ -6,7 +6,7 @@
 //
 
 import UIKit
-
+import SnapKit
 
 enum NetworkError: Error {
     case url
@@ -23,13 +23,21 @@ class SearchViewController: BaseViewController {
     let searchView = SearchView()
     var searchedImagePathList: ImageList = ImageList(imageList: [])
     weak var delegate: SearchViewControllerDelegate?
+    var cellRegistration: UICollectionView.CellRegistration<UICollectionViewListCell, ImageInfo>!
     
-    override func loadView() {
-        view = searchView
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
+        cellRegistration = .init(handler: { cell, indexPath, itemIdentifier in
+            var content = UIListContentConfiguration.valueCell()
+            DispatchQueue.global().async {
+                let url = URL(string: itemIdentifier.imageUrls.thumb)!
+                let data = try? Data(contentsOf: url)
+                DispatchQueue.main.async {
+                    content.image = UIImage(data: data!)
+                    cell.contentConfiguration = content
+                }
+            }
+        })
     }
     
     override func configureView() {
@@ -37,10 +45,18 @@ class SearchViewController: BaseViewController {
         searchView.collectionView.delegate = self
         searchView.collectionView.dataSource = self
         searchView.searchBar.delegate = self
+        view.addSubview(searchView)
+    }
+    
+    override func setConstraints() {
+        searchView.snp.makeConstraints { make in
+            make.edges.equalTo(view.safeAreaLayoutGuide)
+        }
     }
     
     func searchImage(searchKeyword: String, completion: @escaping (Result<ImageList, Error>) -> Void) {
-        let request = URLRequest(url: URL(string: "https://api.unsplash.com/search/photos?query=\(searchKeyword)&client_id=\(APIKey.unsplash)")!)
+        guard let url = URL(string: "https://api.unsplash.com/search/photos?query=\(searchKeyword)&client_id=\(APIKey.unsplash)") else { return }
+        let request = URLRequest(url: url, timeoutInterval: 10)
         URLSession.shared.dataTask(with: request) { data, response, error in
             guard let response = response as? HTTPURLResponse, (200..<300) ~= response.statusCode else {
                 completion(.failure(NetworkError.network(error: error)))
@@ -63,13 +79,12 @@ extension SearchViewController: UICollectionViewDelegate, UICollectionViewDataSo
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "AddCollectionViewCell", for: indexPath) as! SearchListCollectionViewCell
-        cell.imageView.fetchImage(url: searchedImagePathList.imageList[indexPath.row].imageUrls.small)
+        let cell = collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: searchedImagePathList.imageList[indexPath.item])
         return cell
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        delegate?.searchImage(imagePath: searchedImagePathList.imageList[indexPath.row].imageUrls.small)
+        delegate?.searchImage(imagePath: searchedImagePathList.imageList[indexPath.row].imageUrls.regular)
         dismiss(animated: true)
     }
     
@@ -87,6 +102,16 @@ extension SearchViewController: UISearchBarDelegate {
             case .failure(let error):
                 print(error)
             }
+        }
+    }
+}
+
+extension SearchViewController: URLSessionDataDelegate {
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse) async -> URLSession.ResponseDisposition {
+        if let response = response as? HTTPURLResponse, (200...500).contains(response.statusCode) {
+            return .allow
+        } else {
+            return .cancel
         }
     }
 }

@@ -25,13 +25,13 @@ class SearchView: BaseView {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        collectionView.collectionViewLayout = collectionViewLayout(numberOfLines: 3)
     }
     
     override func configureView() {
         super.configureView()
         addSubview(searchBar)
         addSubview(collectionView)
+        collectionViewLayout()
     }
     
     override func setConstraints() {
@@ -45,15 +45,9 @@ class SearchView: BaseView {
         }
     }
     
-    func collectionViewLayout(numberOfLines: Int) -> UICollectionViewFlowLayout {
-        let inset = 20
-        let collectionViewFlowLayout = UICollectionViewFlowLayout()
-        collectionViewFlowLayout.scrollDirection = .vertical
-        let size = frame.width-CGFloat(inset*(numberOfLines+1))
-        let itemSize = size/CGFloat(numberOfLines)
-        collectionViewFlowLayout.itemSize = CGSize(width: itemSize, height: itemSize)
-        collectionViewFlowLayout.minimumLineSpacing = 20
-        collectionViewFlowLayout.minimumInteritemSpacing = 20
-        return collectionViewFlowLayout
+    func collectionViewLayout() {
+        var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
+        collectionView.collectionViewLayout = layout
     }
 }
