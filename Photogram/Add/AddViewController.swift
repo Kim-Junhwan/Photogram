@@ -8,10 +8,18 @@
 import UIKit
 import SnapKit
 import PhotosUI
+import RealmSwift
 
 class AddViewController: BaseViewController {
 
     let mainView = AddView()
+    lazy var addTabBarButton: UIBarButtonItem = {
+        let button = UIBarButtonItem(title: "추가", style: .plain, target: self, action: #selector(tapAddButton))
+        button.tintColor = .blue
+        return button
+    }()
+    
+    let realm = try! Realm()
     
     override func loadView() {
         self.view = mainView
@@ -35,6 +43,32 @@ class AddViewController: BaseViewController {
         present(alert, animated: true)
     }
     
+    @objc func tapAddButton() {
+        let titleText = mainView.titleTextField.text!
+        let saveData: DiaryTable
+        if mainView.photoImageView.image != nil {
+            saveData = DiaryTable(diaryTitle: titleText, hasImage: true)
+            saveImageToDocument(fileName: "\(saveData._id).jpg", image: mainView.photoImageView.image!)
+        } else {
+            saveData = DiaryTable(diaryTitle: titleText, hasImage: false)
+        }
+        try! realm.write {
+            realm.add(saveData)
+        }
+        navigationController?.popViewController(animated: true)
+    }
+    
+    func saveImageToDocument(fileName: String, image: UIImage) {
+        guard let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let fileURL = documentDirectory.appendingPathComponent(fileName)
+        guard let data = image.jpegData(compressionQuality: 0.5) else { return }
+        do {
+            try data.write(to: fileURL)
+        } catch let error {
+            print("file save error", error)
+        }
+    }
+    
     private func showGallery (_ : UIAlertAction) {
         var config = PHPickerConfiguration()
         config.selectionLimit = 1
@@ -54,6 +88,7 @@ class AddViewController: BaseViewController {
     override func configureView() {
         super.configureView()
         mainView.searchButton.addTarget(self, action: #selector(searchButtonClicked), for: .touchUpInside)
+        navigationItem.setRightBarButton(addTabBarButton, animated: false)
     }
 
 }
